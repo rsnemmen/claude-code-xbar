@@ -6,6 +6,8 @@ A SwiftBar / xbar plugin that displays Claude Code rate limit utilization in the
 
 This script was *heavily* inspired on [ClaudeMeter](https://github.com/puq-ai/claude-meter) (a Swift MacOS app) for retrieving info from the keychain. It borrows the structure from [`poe-balance`](https://github.com/rsnemmen/poe-balance). The result is something you can drop into your SwiftBar plugins folder and run immediately, without any build step.
 
+![](SCR-20260219-jges.png)
+
 ## Requirements
 
 - macOS 12.3 or later
@@ -31,7 +33,6 @@ This script was *heavily* inspired on [ClaudeMeter](https://github.com/puq-ai/cl
 
 No API key setup is needed. The script reads the OAuth token that Claude Code already stores in your macOS Keychain under `"Claude Code-credentials"`.
 
----
 
 ## Output
 
@@ -77,9 +78,9 @@ Resets in: 4d 2h
 Refresh
 ```
 
----
+## Misc
 
-## Configuration
+### Configuration
 
 Edit the `xbar.var` lines at the top of the script, or use SwiftBar's built-in variable editor (right-click the menu bar item → **Preferences**).
 
@@ -89,9 +90,7 @@ Edit the `xbar.var` lines at the top of the script, or use SwiftBar's built-in v
 | `VAR_COLORS` | `true` | Color-code the title at warning and critical thresholds |
 | `VAR_SHOW_RESET` | `true` | Show time-until-reset for each window in the dropdown |
 
----
-
-## Error states
+### Error states
 
 | Condition | Menu bar display |
 |---|---|
@@ -102,9 +101,7 @@ Edit the `xbar.var` lines at the top of the script, or use SwiftBar's built-in v
 
 If credentials are missing, sign in to Claude Code (`claude login`) and the script will pick them up on the next poll.
 
----
-
-## How it works
+### How it works
 
 1. Reads the Claude Code OAuth token from the macOS Keychain using the `security` CLI — the same approach used in ClaudeMeter's `KeychainService.swift` — which avoids triggering a Keychain password prompt.
 2. Calls `GET https://api.anthropic.com/api/oauth/usage` with the bearer token and the `anthropic-beta: oauth-2025-04-20` header.
@@ -113,15 +110,13 @@ If credentials are missing, sign in to Claude Code (`claude login`) and the scri
 
 All JSON parsing and date arithmetic is handled by `python3` (stdlib only). No `jq`, no `bc`, no third-party packages.
 
----
-
-## Polling interval
+### Polling interval
 
 The `5m` in the filename tells SwiftBar to run the script every 5 minutes. To change the interval, rename the file — for example, `claude_usage.1m.sh` for once per minute or `claude_usage.15m.sh` for every 15 minutes.
 
----
+### Related projects
 
-## Related projects
+Heavily inspired this one.
 
-- **ClaudeMeter** — the full native macOS app this script lives alongside: adaptive polling, circuit breaker, notifications, settings UI, and more, all in Swift with no external dependencies.
-- **poe_balance** — the SwiftBar plugin for Poe API credits that served as the structural template for this script.
+- **[ClaudeMeter](https://github.com/puq-ai/claude-meter)** — the full native macOS app this script lives alongside: adaptive polling, circuit breaker, notifications, settings UI, and more, all in Swift.
+- **[poe_balance](https://github.com/rsnemmen/poe-balance)** — the SwiftBar plugin for Poe API credits that served as the structural template for this script.
