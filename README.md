@@ -2,12 +2,6 @@
 
 A single shell script that displays Claude Code API rate limit utilization in the macOS menu bar, polling every 5 minutes. No compilation, no Xcode, no external packages required.
 
-```
-45% | ████████░░░░░░░░░░░░
-```
-
----
-
 ## Background
 
 This script is a lightweight companion to [ClaudeMeter](https://github.com/rsnemmen/claude-meter), a full native macOS app built in Swift that monitors Claude Code usage. The shell script follows the same approach as [`poe_balance.1h.sh`](poe_balance.1h.sh) — a SwiftBar plugin for Poe API credits — and borrows its structure, credential-retrieval pattern, and output format. The result is something you can drop into your SwiftBar plugins folder and run immediately, without any build step.
