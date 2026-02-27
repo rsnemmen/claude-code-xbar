@@ -1,4 +1,4 @@
-# Claude Usage — SwiftBar/xbar Plugin
+# Claude Code usage and rate monitoring — SwiftBar/xbar Plugin
 
 A SwiftBar / xbar plugin that displays Claude Code rate limit utilization in the macOS menu bar, polling every 5 minutes. 
 
