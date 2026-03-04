@@ -66,18 +66,13 @@ http_code="$(printf '%s\n' "$response" | tail -n 1)"
 body="$(printf '%s\n' "$response" | sed '$d')"
 
 if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
-  echo "? | templateImage=${CLAUDE_ICON}"
-  echo "---"
-  echo "No internet connection."
-  echo "---"
-  echo "Refresh | refresh=true"
-  exit 0
+  show_error "No internet connection."
 fi
 
 if [ "$http_code" = "401" ]; then
   show_error "Token expired. Please sign in to Claude Code again."
-elif [ "$http_code" -lt 200 ] 2>/dev/null || [ "$http_code" -ge 300 ] 2>/dev/null; then
-  show_error "API Error ($http_code). Response: $body"
+elif [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+  show_error "API error: HTTP $http_code"
 fi
 
 # === Parse JSON response ===
@@ -107,7 +102,7 @@ except Exception as e:
 " 2>/dev/null)"
 
 if [ -z "$parsed" ]; then
-  show_error "Could not parse API response: $body"
+  show_error "Could not parse API response"
 fi
 
 UTIL_5H="$(      printf '%s\n' "$parsed" | sed -n '1p')"
