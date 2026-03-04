@@ -22,7 +22,7 @@ CLAUDE_ICON="iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAHh
 
 show_error() {
   local message="$1"
-  echo "⚠️ | templateImage=${CLAUDE_ICON}"
+  echo "! | templateImage=${CLAUDE_ICON}"
   echo "---"
   echo "${message}"
   echo "---"
@@ -56,7 +56,7 @@ fi
 
 # === Fetch usage from API ===
 
-response="$(curl -s -w "\n%{http_code}" \
+response="$(curl -s --connect-timeout 5 --max-time 10 -w "\n%{http_code}" \
   -H "Authorization: Bearer ${TOKEN}" \
   -H "anthropic-beta: oauth-2025-04-20" \
   -H "Accept: application/json" \
@@ -64,6 +64,15 @@ response="$(curl -s -w "\n%{http_code}" \
 
 http_code="$(printf '%s\n' "$response" | tail -n 1)"
 body="$(printf '%s\n' "$response" | sed '$d')"
+
+if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
+  echo "? | templateImage=${CLAUDE_ICON}"
+  echo "---"
+  echo "No internet connection."
+  echo "---"
+  echo "Refresh | refresh=true"
+  exit 0
+fi
 
 if [ "$http_code" = "401" ]; then
   show_error "Token expired. Please sign in to Claude Code again."
