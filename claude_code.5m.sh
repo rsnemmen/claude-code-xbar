@@ -30,13 +30,27 @@ show_error() {
   exit 0
 }
 
-RAW_CREDS="$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)"
+USAGE_CACHE="/tmp/.claude_swiftbar_cache"
+TOKEN_CACHE="/tmp/.claude_swiftbar_token"
+CACHE_TTL=300   # 5 minutes — matches poll interval
+TOKEN_TTL=900   # 15 minutes
 
-if [ -z "$RAW_CREDS" ]; then
-  show_error "No Claude Code credentials found in Keychain. Sign in to Claude Code first."
+# === Get token (cached) ===
+
+TOKEN=""
+if [ -f "$TOKEN_CACHE" ]; then
+  cache_age=$(( $(date -u +%s) - $(stat -f %m "$TOKEN_CACHE" 2>/dev/null || echo 0) ))
+  if [ "$cache_age" -lt "$TOKEN_TTL" ]; then
+    TOKEN="$(cat "$TOKEN_CACHE" 2>/dev/null)"
+  fi
 fi
 
-TOKEN="$(printf '%s' "$RAW_CREDS" | python3 -c "
+if [ -z "$TOKEN" ]; then
+  RAW_CREDS="$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)"
+  if [ -z "$RAW_CREDS" ]; then
+    show_error "No Claude Code credentials found in Keychain. Sign in to Claude Code first."
+  fi
+  TOKEN="$(printf '%s' "$RAW_CREDS" | python3 -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read().strip())
@@ -49,35 +63,48 @@ try:
 except Exception:
     sys.exit(1)
 " 2>/dev/null)"
-
-if [ -z "$TOKEN" ]; then
-  show_error "Could not parse Claude Code credentials."
+  if [ -z "$TOKEN" ]; then
+    show_error "Could not parse Claude Code credentials."
+  fi
+  printf '%s' "$TOKEN" > "$TOKEN_CACHE"
 fi
 
-# === Fetch usage from API ===
+# === Load usage from cache or fetch from API ===
 
-response="$(curl -s --connect-timeout 5 --max-time 10 -w "\n%{http_code}" \
-  -H "Authorization: Bearer ${TOKEN}" \
-  -H "anthropic-beta: oauth-2025-04-20" \
-  -H "Accept: application/json" \
-  "https://api.anthropic.com/api/oauth/usage")"
+parsed=""
 
-http_code="$(printf '%s\n' "$response" | tail -n 1)"
-body="$(printf '%s\n' "$response" | sed '$d')"
-
-if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
-  show_error "No internet connection."
+if [ -f "$USAGE_CACHE" ]; then
+  cache_age=$(( $(date -u +%s) - $(stat -f %m "$USAGE_CACHE" 2>/dev/null || echo 0) ))
+  if [ "$cache_age" -lt "$CACHE_TTL" ]; then
+    parsed="$(cat "$USAGE_CACHE" 2>/dev/null)"
+  fi
 fi
 
-if [ "$http_code" = "401" ]; then
-  show_error "Token expired. Please sign in to Claude Code again."
-elif [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-  show_error "API error: HTTP $http_code"
-fi
+if [ -z "$parsed" ]; then
+  response="$(curl -s --connect-timeout 5 --max-time 10 -w "\n%{http_code}" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "anthropic-beta: oauth-2025-04-20" \
+    -H "Accept: application/json" \
+    "https://api.anthropic.com/api/oauth/usage")"
 
-# === Parse JSON response ===
+  http_code="$(printf '%s\n' "$response" | tail -n 1)"
+  body="$(printf '%s\n' "$response" | sed '$d')"
 
-parsed="$(printf '%s' "$body" | python3 -c "
+  if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
+    show_error "No internet connection."
+  fi
+
+  if [ "$http_code" = "401" ]; then
+    # Token may be stale — clear cache so next run re-reads from Keychain
+    rm -f "$TOKEN_CACHE"
+    show_error "Token expired. Please sign in to Claude Code again."
+  elif [ "$http_code" = "429" ]; then
+    show_error "Usage API rate limited. Will retry shortly."
+  elif [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+    show_error "API error: HTTP $http_code"
+  fi
+
+  parsed="$(printf '%s' "$body" | python3 -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read())
@@ -101,8 +128,11 @@ except Exception as e:
     sys.exit(1)
 " 2>/dev/null)"
 
-if [ -z "$parsed" ]; then
-  show_error "Could not parse API response"
+  if [ -z "$parsed" ]; then
+    show_error "Could not parse API response"
+  fi
+
+  printf '%s\n' "$parsed" > "$USAGE_CACHE"
 fi
 
 UTIL_5H="$(      printf '%s\n' "$parsed" | sed -n '1p')"
