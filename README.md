@@ -6,8 +6,12 @@ A SwiftBar / xbar plugin that displays Claude Code rate limit utilization in the
 
 This script was *heavily* inspired on [ClaudeMeter](https://github.com/puq-ai/claude-meter) and [Claude Usage Bar](https://github.com/Blimp-Labs/claude-usage-bar?tab=readme-ov-file) (Swift MacOS apps). It borrows the structure from [`poe-balance`](https://github.com/rsnemmen/poe-balance). The result is something you can drop into your SwiftBar plugins folder and run immediately, without any build step.
 
-![](imgs/SCR-20260219-jges.png)
+Two display modes for usage:
 
+1. Percentage
+2. Progress bars 5h/7d
+
+![](imgs/SCR-20260219-jges.png)
 ![](imgs/SCR-20260308-pbzl.png)
 
 ## Requirements
