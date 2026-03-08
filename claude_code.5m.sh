@@ -11,10 +11,12 @@
 #<xbar.var>boolean(VAR_SHOW_7D="false"): Also show 7-day window in title (e.g. 45%/23%).</xbar.var>
 #<xbar.var>boolean(VAR_COLORS="true"): Color-code title at warning (>75%) and critical (>90%) levels.</xbar.var>
 #<xbar.var>boolean(VAR_SHOW_RESET="true"): Show time-until-reset for each window in the dropdown.</xbar.var>
+#<xbar.var>boolean(VAR_SHOW_BARS="true"): Show dynamic dual progress bar icon (5h top, 7d bottom) instead of the Claude logo.</xbar.var>
 
 SHOW_7D="${VAR_SHOW_7D:-false}"
 COLORS="${VAR_COLORS:-true}"
 SHOW_RESET="${VAR_SHOW_RESET:-true}"
+SHOW_BARS="${VAR_SHOW_BARS:-true}"
 
 CLAUDE_ICON="iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAHhlWElmTU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAIdpAAQAAAABAAAATgAAAAAAAABIAAAAAQAAAEgAAAABAAOgAQADAAAAAQABAACgAgAEAAAAAQAAABKgAwAEAAAAAQAAABIAAAAAqSaGYgAAAAlwSFlzAAALEwAACxMBAJqcGAAAAdJJREFUOBGV0z1IVWEYB3Cv2ZAVlQUpWDnYJqZBREPU1tISBo1OBkEfWBGNQhTR1iwu2hIENdYUVBRBBjXVUEZRYBLah2CD3X5/O/cQ14vRA7/zPO/Hec857zmnqakuqtVqM11U6ob+r2mBQ3zjYu1MdR/3aKv1/TObvI9ffKqdKA+zwOYsIPewv+FiBrbSWky8oU6cKtrX1C+Kuludi3xkaX65oI4WJnlOLx185TUZmyi0yk9JXGf5Puo8zjzfGeACiSPcJu0xErno+vJO6guDu3hAYpwZnvCY3G1ijp76cxu2TTxP7qwWi0WRlzBCP0OMcou2isMWq43wky/MME0vZ9lELaqKjK0m8/ICHjLW4jDPSzrYQDt9JBb/pPKYua+4zyTvmapUKgvy8nCXnWSPpsjj1GJKcZm7TJN4R3vuqAwd6zSGyfdzh2fkEbrIFkQ3A+Tx+lnLbPkdWGSvjnFWcYJOhhjlMD84wCO2c9QjfZaXorlWyLlCFtrNLJcYZAdznCPfzgcmyLe1U24cBrfxhmOZIednvVrUg+rEHvJzH0x/wzB4hisZlNeQ/+p00c7ncpOTDU/+u9Ok8gWoN/KW7FEZ2n9vSdm/YuGkdrJ/K8ZvZcjUYTq3RuAAAAAASUVORK5CYII="
 
@@ -288,13 +290,20 @@ else
   TITLE="${PCT_5H}%"
 fi
 
-BAR_ICON="$(make_icon "$PCT_5H" "$PCT_7D")"
-
 # Emit menu bar line
-if [ -n "$TITLE_COLOR" ]; then
-  echo "${TITLE} | image=${BAR_ICON} color=${TITLE_COLOR}"
+if [ "$SHOW_BARS" = "true" ]; then
+  BAR_ICON="$(make_icon "$PCT_5H" "$PCT_7D")"
+  if [ -n "$TITLE_COLOR" ]; then
+    echo "${TITLE} | image=${BAR_ICON} color=${TITLE_COLOR}"
+  else
+    echo "${TITLE} | image=${BAR_ICON}"
+  fi
 else
-  echo "${TITLE} | image=${BAR_ICON}"
+  if [ -n "$TITLE_COLOR" ]; then
+    echo "${TITLE} | templateImage=${CLAUDE_ICON} color=${TITLE_COLOR}"
+  else
+    echo "${TITLE} | templateImage=${CLAUDE_ICON}"
+  fi
 fi
 
 # === Dropdown ===
