@@ -77,7 +77,7 @@ shellcheck claude_code.5m.sh
   - `RESET_*` for ISO timestamp strings
   - `BAR_*` for ASCII progress bars
   - `COLOR_*` for hex color codes
-- **Functions**: snake_case (e.g., `time_until()`, `color_for_pct()`, `make_bar()`)
+- **Functions**: snake_case (e.g., `time_until()`, `color_for_pct()`, `make_bar()`, `make_icon()`)
 
 ### Imports / Dependencies
 
@@ -130,7 +130,8 @@ Place at top of script in comments:
 
 ### Output Format
 
-- **Menu bar line**: `percentage | templateImage=... color=...`
+- **Menu bar line (bar mode)**: ` | image=BASE64_PNG` (space-only text, dynamic PNG from `make_icon`)
+- **Menu bar line (text mode)**: `percentage | templateImage=... color=...`
 - **Dropdown sections**: Separated by `---`
 - **Refresh action**: `Refresh | refresh=true`
 - **Colors**: Hex codes (e.g., `#FF0000`, `#FFD700`, `#888888`)
@@ -157,8 +158,9 @@ User-configurable variables (defined at top, also editable via SwiftBar):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| VAR_SHOW_7D | false | Show 7-day window in title (e.g. 45%/23%) |
-| VAR_COLORS | true | Color-code at warning (>75%) and critical (>90%) levels |
+| VAR_SHOW_BARS | true | Show dynamic dual progress bar icon (5h top, 7d bottom); false reverts to static Claude logo with text |
+| VAR_SHOW_7D | false | Show 7-day window in title as text (e.g. 45%/23%); only applies when VAR_SHOW_BARS=false |
+| VAR_COLORS | true | Color-code at warning (>75%) and critical (>90%) levels; only applies when VAR_SHOW_BARS=false |
 | VAR_SHOW_RESET | true | Show time-until-reset in dropdown |
 
 ---
