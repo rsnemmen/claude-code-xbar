@@ -223,9 +223,7 @@ make_icon() {
 import struct, zlib, base64
 
 def color_for(pct):
-    if pct >= 90: return (255, 59, 48, 255)
-    if pct >= 75: return (255, 215, 0, 255)
-    return (76, 175, 80, 255)
+    return (0, 0, 0, 255)
 
 def make_png(w, h, rows_rgba):
     def chunk(tag, data):
@@ -250,7 +248,7 @@ c5 = color_for(p5)
 c7 = color_for(p7)
 fill5 = int(round(p5 * W / 100))
 fill7 = int(round(p7 * W / 100))
-EMPTY = (80, 80, 80, 180)
+EMPTY = (0, 0, 0, 60)
 CLEAR = (0, 0, 0, 0)
 
 def bar_row(fill, fg):
