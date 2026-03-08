@@ -1,4 +1,4 @@
-# AGENTS.md - Claude Usage
+# AGENTS.md - Claude Code Rate Limit Plugin
 
 ## Project Overview
 
@@ -14,10 +14,13 @@ This project has **no build system** - it's a standalone shell script.
 
 ```bash
 # Make executable (already set)
-chmod +x claude_usage.5m.sh
+chmod +x claude_code.5m.sh
 
 # Run directly
-./claude_usage.5m.sh
+./claude_code.5m.sh
+
+# Run with specific environment variables
+VAR_SHOW_7D=true VAR_COLORS=true ./claude_code.5m.sh
 
 # Test with SwiftBar/xbar installed
 # Copy to SwiftBar plugins folder: ~/Library/Application Support/SwiftBar/Plugins/
@@ -25,21 +28,23 @@ chmod +x claude_usage.5m.sh
 
 ### Linting
 
-No formal linter configured. For shell script quality, consider:
-
 ```bash
-# shellcheck (optional)
-brew install shellcheck
-shellcheck claude_usage.5m.sh
+shellcheck claude_code.5m.sh
 ```
 
 ### Testing
 
-**No automated tests exist.** To test manually:
+**No automated tests exist.** Manual verification steps:
 
 1. Ensure Claude Code is installed and signed in
-2. Run the script and verify menu bar output
-3. Check SwiftBar/xbar dropdown renders correctly
+2. Run the script and verify menu bar output:
+   ```bash
+   ./claude_code.5m.sh | head -5
+   ```
+3. Check SwiftBar/xbar dropdown renders correctly:
+   ```bash
+   ./claude_code.5m.sh | grep -c "^---"
+   ```
 
 ---
 
@@ -56,43 +61,60 @@ shellcheck claude_usage.5m.sh
 
 ### Formatting
 
-- Indentation: 2 spaces
+- Indentation: 2 spaces (no tabs)
 - Max line length: 100 characters (soft limit)
 - Use blank lines to separate logical sections
 - Comment sections with `=== SECTION NAME ===` format
+- Use `printf '%s'` instead of `echo` for arbitrary strings
 
 ### Naming Conventions
 
-- **Script files**: `{name}.{interval}.sh` (e.g., `claude_usage.5m.sh`)
-- **Variables**: Descriptive, prefixed with context (e.g., `VAR_` for user-configurable, `UTIL_` for values)
-- **Functions**: snake_case (e.g., `time_until()`, `color_for_pct()`)
+- **Script files**: `{name}.{interval}.sh` (e.g., `claude_code.5m.sh`)
+- **Variables**: Descriptive, prefixed with context:
+  - `VAR_*` for user-configurable settings
+  - `UTIL_*` for raw utilization floats
+  - `PCT_*` for rounded integer percentages
+  - `RESET_*` for ISO timestamp strings
+  - `BAR_*` for ASCII progress bars
+  - `COLOR_*` for hex color codes
+- **Functions**: snake_case (e.g., `time_until()`, `color_for_pct()`, `make_bar()`)
 
 ### Imports / Dependencies
 
-- **System utilities only**: `curl`, `python3`, `security` (Keychain access)
+- **System utilities only**: `curl`, `python3`, `security` (Keychain access), `stat`
 - **Python stdlib only**: `json`, `datetime`, `sys`, `sys.stderr`
 - Avoid external tools like `jq`, `bc`, `awk` - use Python for parsing instead
+- Always use `python3` (not `python`)
 
 ### Error Handling
 
 - Check for required credentials/inputs before API calls
 - Provide user-friendly error messages in menu bar output
-- Use appropriate emoji indicators: `⚠️` for errors
+- Use appropriate emoji indicators: `!` for errors
 - Include error details in dropdown or stderr, not in title
-- HTTP errors: display `⚠️ API Error (NNN)` with status code
+- HTTP errors: display error with status code in dropdown
+- On auth errors (401), clear token cache so next run re-reads from Keychain
 
 ### Types
 
 - Shell: strings and integers only
 - Python: use explicit type handling (e.g., `str(v) if v is not None else default`)
 - Percentages: round to integers using `round(float(...))`
+- Timestamps: parse ISO 8601 format in Python, display as relative time
 
 ### API Conventions
 
 - **OAuth token**: Retrieved from macOS Keychain using `security find-generic-password`
+- **Keychain service name**: `Claude Code-credentials`
 - **API endpoint**: `https://api.anthropic.com/api/oauth/usage`
 - **Headers**: Bearer token + `anthropic-beta: oauth-2025-04-20`
 - **Response format**: JSON with `five_hour`, `seven_day`, `seven_day_opus` windows
+
+### Caching
+
+- Token cache: `/tmp/.claude_swiftbar_token` (15-minute TTL)
+- Response cache: `/tmp/.claude_swiftbar_cache` (5-minute TTL, matches poll interval)
+- Use `date -u +%s` for Unix timestamps, `stat -f %m` for macOS file modification time
 
 ### SwiftBar/xbar Plugin Metadata
 
@@ -112,6 +134,7 @@ Place at top of script in comments:
 - **Dropdown sections**: Separated by `---`
 - **Refresh action**: `Refresh | refresh=true`
 - **Colors**: Hex codes (e.g., `#FF0000`, `#FFD700`, `#888888`)
+- **Color thresholds**: yellow `#FFD700` at ≥75%, red `#FF0000` at ≥90%
 
 ---
 
@@ -119,9 +142,11 @@ Place at top of script in comments:
 
 ```
 .
-├── claude_usage.5m.sh    # Main plugin script
-├── README.md             # User documentation
-└── logo.png              # App icon (base64 in script)
+├── claude_code.5m.sh    # Main plugin script
+├── README.md            # User documentation
+├── CLAUDE.md            # Claude Code guidance
+├── AGENTS.md            # AI agent guidance
+└── logo.png             # App icon (base64 in script)
 ```
 
 ---
@@ -132,8 +157,8 @@ User-configurable variables (defined at top, also editable via SwiftBar):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| VAR_SHOW_7D | false | Show 7-day window in title |
-| VAR_COLORS | true | Color-code at warning/critical thresholds |
+| VAR_SHOW_7D | false | Show 7-day window in title (e.g. 45%/23%) |
+| VAR_COLORS | true | Color-code at warning (>75%) and critical (>90%) levels |
 | VAR_SHOW_RESET | true | Show time-until-reset in dropdown |
 
 ---
@@ -142,17 +167,18 @@ User-configurable variables (defined at top, also editable via SwiftBar):
 
 ### Adding a new rate limit window
 
-1. Add parsing in Python section (lines 75-97)
-2. Extract variable using `sed -n 'Np'` (line 105+)
-3. Add to display in dropdown section
+1. Add `get_val('window_name', 'utilization')` and `get_val('window_name', 'resets_at')` to the Python parsing block
+2. Extract variables using `sed -n 'Np'` (append two new lines to the existing sequence)
+3. Call `format_pct`, `make_bar`, `color_for_pct`, and `time_until` following the existing pattern
+4. Emit the new dropdown section between `---` separators
 
 ### Modifying error messages
 
-Error states are handled at script top after credential retrieval and after API call. Menu bar displays short message; details go to dropdown or stderr.
+All error paths use `show_error "message"`. Error states occur after credential retrieval and after the API call. The title shows `!`; the message appears in the dropdown.
 
 ### Changing polling interval
 
-Rename file: `claude_usage.5m.sh` → `claude_usage.15m.sh` (xbar reads interval from filename)
+Rename file: `claude_code.5m.sh` → `claude_code.15m.sh` (xbar reads interval from filename)
 
 ---
 
@@ -163,3 +189,5 @@ Rename file: `claude_usage.5m.sh` → `claude_usage.15m.sh` (xbar reads interval
 - Keep dependencies minimal - Python stdlib only
 - Follow existing patterns in the script for consistency
 - Test any changes with SwiftBar/xbar before committing
+- Use `printf '%s'` instead of `echo` for reliability
+- All JSON parsing and date arithmetic goes in inline Python
