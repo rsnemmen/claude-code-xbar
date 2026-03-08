@@ -4,9 +4,11 @@ A SwiftBar / xbar plugin that displays Claude Code rate limit utilization in the
 
 ## Background
 
-This script was *heavily* inspired on [ClaudeMeter](https://github.com/puq-ai/claude-meter) (a Swift MacOS app) for retrieving info from the keychain. It borrows the structure from [`poe-balance`](https://github.com/rsnemmen/poe-balance). The result is something you can drop into your SwiftBar plugins folder and run immediately, without any build step.
+This script was *heavily* inspired on [ClaudeMeter](https://github.com/puq-ai/claude-meter) and [Claude Usage Bar](https://github.com/Blimp-Labs/claude-usage-bar?tab=readme-ov-file) (Swift MacOS apps). It borrows the structure from [`poe-balance`](https://github.com/rsnemmen/poe-balance). The result is something you can drop into your SwiftBar plugins folder and run immediately, without any build step.
 
-![](SCR-20260219-jges.png)
+![](imgs/SCR-20260219-jges.png)
+
+![](imgs/SCR-20260308-pbzl.png)
 
 ## Requirements
 
@@ -38,19 +40,21 @@ No API key setup is needed. The script reads the OAuth token that Claude Code al
 
 ### Menu bar title
 
-By default, only the 5-hour window utilization is shown:
+By default (`VAR_SHOW_BARS=true`), the title is a compact dual progress bar icon: the top bar represents the 5-hour window and the bottom bar represents the 7-day window. No percentage text is shown — just the bars.
+
+When `VAR_SHOW_BARS=false`, the title falls back to the static Claude logo with a percentage:
 
 ```
 45%
 ```
 
-With `VAR_SHOW_7D=true`, both the 5-hour and 7-day windows are shown in compact form:
+With `VAR_SHOW_7D=true` (and `VAR_SHOW_BARS=false`), both windows appear as text:
 
 ```
 45%/23%
 ```
 
-Color coding (when `VAR_COLORS=true`):
+Color coding (when `VAR_COLORS=true`, applies to text title only):
 
 | Utilization | Color |
 |---|---|
@@ -86,8 +90,9 @@ Edit the `xbar.var` lines at the top of the script, or use SwiftBar's built-in v
 
 | Variable | Default | Description |
 |---|---|---|
-| `VAR_SHOW_7D` | `false` | Also show the 7-day window in the title (`45%/23%`) |
-| `VAR_COLORS` | `true` | Color-code the title at warning and critical thresholds |
+| `VAR_SHOW_BARS` | `true` | Show a dynamic dual progress bar icon (5h top, 7d bottom) instead of the Claude logo |
+| `VAR_SHOW_7D` | `false` | Also show the 7-day window in the title as text (`45%/23%`); only applies when `VAR_SHOW_BARS=false` |
+| `VAR_COLORS` | `true` | Color-code the title at warning and critical thresholds; only applies when `VAR_SHOW_BARS=false` |
 | `VAR_SHOW_RESET` | `true` | Show time-until-reset for each window in the dropdown |
 
 ### Error states
