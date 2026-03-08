@@ -213,6 +213,60 @@ make_bar() {
   echo "$bar"
 }
 
+# === Helper: dynamic dual progress bar icon ===
+
+make_icon() {
+  local pct5h="${1:-0}" pct7d="${2:-0}"
+  python3 -c "
+import struct, zlib, base64
+
+def color_for(pct):
+    if pct >= 90: return (255, 59, 48, 255)
+    if pct >= 75: return (255, 215, 0, 255)
+    return (76, 175, 80, 255)
+
+def make_png(w, h, rows_rgba):
+    def chunk(tag, data):
+        c = struct.pack('>I', len(data)) + tag + data
+        return c + struct.pack('>I', zlib.crc32(c[4:]) & 0xffffffff)
+    ihdr = struct.pack('>IIBBBBB', w, h, 8, 6, 0, 0, 0)
+    raw = b''
+    for row in rows_rgba:
+        raw += b'\x00'
+        for (r,g,b,a) in row:
+            raw += bytes([r,g,b,a])
+    idat = zlib.compress(raw)
+    return (b'\x89PNG\r\n\x1a\n'
+            + chunk(b'IHDR', ihdr)
+            + chunk(b'IDAT', idat)
+            + chunk(b'IEND', b''))
+
+W, H = 32, 14
+p5 = min(max(int(round(${pct5h})), 0), 100)
+p7 = min(max(int(round(${pct7d})), 0), 100)
+c5 = color_for(p5)
+c7 = color_for(p7)
+fill5 = int(round(p5 * W / 100))
+fill7 = int(round(p7 * W / 100))
+EMPTY = (80, 80, 80, 180)
+CLEAR = (0, 0, 0, 0)
+
+def bar_row(fill, fg):
+    return [fg if x < fill else EMPTY for x in range(W)]
+
+rows = []
+for row_i in range(H):
+    if 1 <= row_i <= 5:
+        rows.append(bar_row(fill5, c5))
+    elif 9 <= row_i <= 13:
+        rows.append(bar_row(fill7, c7))
+    else:
+        rows.append([CLEAR] * W)
+
+print(base64.b64encode(make_png(W, H, rows)).decode())
+" 2>/dev/null
+}
+
 # === Build menu bar title ===
 
 COLOR_5H="$(color_for_pct "$PCT_5H")"
@@ -234,11 +288,13 @@ else
   TITLE="${PCT_5H}%"
 fi
 
+BAR_ICON="$(make_icon "$PCT_5H" "$PCT_7D")"
+
 # Emit menu bar line
 if [ -n "$TITLE_COLOR" ]; then
-  echo "${TITLE} | templateImage=${CLAUDE_ICON} color=${TITLE_COLOR}"
+  echo "${TITLE} | image=${BAR_ICON} color=${TITLE_COLOR}"
 else
-  echo "${TITLE} | templateImage=${CLAUDE_ICON}"
+  echo "${TITLE} | image=${BAR_ICON}"
 fi
 
 # === Dropdown ===
