@@ -294,9 +294,9 @@ fi
 if [ "$SHOW_BARS" = "true" ]; then
   BAR_ICON="$(make_icon "$PCT_5H" "$PCT_7D")"
   if [ -n "$TITLE_COLOR" ]; then
-    echo "${TITLE} | image=${BAR_ICON} color=${TITLE_COLOR}"
+    echo " | image=${BAR_ICON} color=${TITLE_COLOR}"
   else
-    echo "${TITLE} | image=${BAR_ICON}"
+    echo " | image=${BAR_ICON}"
   fi
 else
   if [ -n "$TITLE_COLOR" ]; then
