@@ -189,8 +189,8 @@ except Exception:
 color_for_pct() {
   local pct=$1
   if [ "$COLORS" = "true" ]; then
-    [ "$pct" -ge 90 ] 2>/dev/null && echo "#FF0000" && return
-    [ "$pct" -ge 75 ] 2>/dev/null && echo "#FFD700" && return
+    [ "$pct" -ge 90 ] 2>/dev/null && echo "#CC0000" && return
+    [ "$pct" -ge 70 ] 2>/dev/null && echo "#CC8800" && return
   fi
   echo ""
 }

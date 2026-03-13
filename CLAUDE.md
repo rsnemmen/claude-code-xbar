@@ -58,4 +58,4 @@ Exposed as xbar plugin variables (editable via xbar UI or set as env vars before
 - Dropdown separator: `---`
 - Refresh action: `Refresh | refresh=true`
 - Muted labels: `| color=#888888`
-- Color thresholds: yellow `#FFD700` at ≥75%, red `#FF0000` at ≥90%
+- Color thresholds: dark amber `#CC8800` at ≥70%, dark red `#CC0000` at ≥90%
