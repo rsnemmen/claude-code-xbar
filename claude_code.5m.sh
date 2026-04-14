@@ -12,11 +12,13 @@
 #<xbar.var>boolean(VAR_COLORS="true"): Color-code title at warning (>75%) and critical (>90%) levels.</xbar.var>
 #<xbar.var>boolean(VAR_SHOW_RESET="true"): Show time-until-reset for each window in the dropdown.</xbar.var>
 #<xbar.var>boolean(VAR_SHOW_BARS="true"): Show dynamic dual progress bar icon (5h top, 7d bottom) instead of the Claude logo.</xbar.var>
+#<xbar.var>boolean(VAR_SHOW_PACE="false"): Show expected (uniform-pace) usage bar under the 7d window.</xbar.var>
 
 SHOW_7D="${VAR_SHOW_7D:-false}"
 COLORS="${VAR_COLORS:-true}"
 SHOW_RESET="${VAR_SHOW_RESET:-true}"
 SHOW_BARS="${VAR_SHOW_BARS:-true}"
+SHOW_PACE="${VAR_SHOW_PACE:-false}"
 
 CLAUDE_ICON="iVBORw0KGgoAAAANSUhEUgAAABIAAAASCAYAAABWzo5XAAAAAXNSR0IArs4c6QAAAHhlWElmTU0AKgAAAAgABAEaAAUAAAABAAAAPgEbAAUAAAABAAAARgEoAAMAAAABAAIAAIdpAAQAAAABAAAATgAAAAAAAABIAAAAAQAAAEgAAAABAAOgAQADAAAAAQABAACgAgAEAAAAAQAAABKgAwAEAAAAAQAAABIAAAAAqSaGYgAAAAlwSFlzAAALEwAACxMBAJqcGAAAAdJJREFUOBGV0z1IVWEYB3Cv2ZAVlQUpWDnYJqZBREPU1tISBo1OBkEfWBGNQhTR1iwu2hIENdYUVBRBBjXVUEZRYBLah2CD3X5/O/cQ14vRA7/zPO/Hec857zmnqakuqtVqM11U6ob+r2mBQ3zjYu1MdR/3aKv1/TObvI9ffKqdKA+zwOYsIPewv+FiBrbSWky8oU6cKtrX1C+Kuludi3xkaX65oI4WJnlOLx185TUZmyi0yk9JXGf5Puo8zjzfGeACiSPcJu0xErno+vJO6guDu3hAYpwZnvCY3G1ijp76cxu2TTxP7qwWi0WRlzBCP0OMcou2isMWq43wky/MME0vZ9lELaqKjK0m8/ICHjLW4jDPSzrYQDt9JBb/pPKYua+4zyTvmapUKgvy8nCXnWSPpsjj1GJKcZm7TJN4R3vuqAwd6zSGyfdzh2fkEbrIFkQ3A+Tx+lnLbPkdWGSvjnFWcYJOhhjlMD84wCO2c9QjfZaXorlWyLlCFtrNLJcYZAdznCPfzgcmyLe1U24cBrfxhmOZIednvVrUg+rEHvJzH0x/wzB4hisZlNeQ/+p00c7ncpOTDU/+u9Ok8gWoN/KW7FEZ2n9vSdm/YuGkdrJ/K8ZvZcjUYTq3RuAAAAAASUVORK5CYII="
 
@@ -184,6 +186,34 @@ except Exception:
 " 2>/dev/null || echo "?"
 }
 
+# === Helper: expected utilization at uniform pace ===
+# Returns what % of the window should have been used by now, assuming uniform consumption.
+# pace_pct <resets_at_iso8601> <window_days>
+
+pace_pct() {
+  local ts="$1"
+  local days="$2"
+  [ -z "$ts" ] && echo "0" && return
+  python3 -c "
+from datetime import datetime, timezone, timedelta
+ts = '${ts}'
+days = ${days}
+try:
+    if ts.endswith('Z'):
+        ts = ts[:-1] + '+00:00'
+    resets_at = datetime.fromisoformat(ts)
+    now = datetime.now(timezone.utc)
+    window = timedelta(days=days)
+    start = resets_at - window
+    elapsed = (now - start).total_seconds()
+    total = window.total_seconds()
+    pct = max(0.0, min(100.0, elapsed / total * 100))
+    print(round(pct))
+except Exception:
+    print(0)
+" 2>/dev/null || echo "0"
+}
+
 # === Helper: color for a given percentage ===
 
 color_for_pct() {
@@ -329,6 +359,12 @@ if [ -n "$COLOR_7D_VAL" ]; then
   echo "7d: ${PCT_7D}% ${BAR_7D} | color=${COLOR_7D_VAL}"
 else
   echo "7d: ${PCT_7D}% ${BAR_7D}"
+fi
+
+if [ "$SHOW_PACE" = "true" ] && [ -n "$RESET_7D" ]; then
+  PCT_PACE_7D="$(pace_pct "$RESET_7D" 7)"
+  BAR_PACE_7D="$(make_bar "$PCT_PACE_7D")"
+  echo "Pace: ${PCT_PACE_7D}% ${BAR_PACE_7D} | color=#888888"
 fi
 
 if [ "$SHOW_RESET" = "true" ] && [ -n "$RESET_7D" ]; then
