@@ -354,4 +354,6 @@ if [ "$SHOW_RESET" = "true" ] && [ -n "$RESET_7D_OPUS" ]; then
 fi
 
 echo "---"
+echo "View usage on Claude.ai | href=https://claude.ai/settings/usage"
+echo "Anthropic status | href=https://status.anthropic.com/"
 echo "Refresh | refresh=true"
