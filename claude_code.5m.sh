@@ -374,22 +374,6 @@ fi
 
 echo "---"
 
-# --- 7d Opus window ---
-COLOR_OPUS="$(color_for_pct "$PCT_7D_OPUS")"
-BAR_OPUS="$(make_bar "$PCT_7D_OPUS")"
-echo "7d Opus window | color=#888888"
-if [ -n "$COLOR_OPUS" ]; then
-  echo "7d Opus: ${PCT_7D_OPUS}% ${BAR_OPUS} | color=${COLOR_OPUS}"
-else
-  echo "7d Opus: ${PCT_7D_OPUS}% ${BAR_OPUS}"
-fi
-
-if [ "$SHOW_RESET" = "true" ] && [ -n "$RESET_7D_OPUS" ]; then
-  UNTIL_OPUS="$(time_until "$RESET_7D_OPUS")"
-  echo "Resets in: ${UNTIL_OPUS} | color=#888888"
-fi
-
-echo "---"
 echo "View usage on Claude.ai | href=https://claude.ai/settings/usage"
 echo "Anthropic status | href=https://status.anthropic.com/"
 echo "Refresh | refresh=true"

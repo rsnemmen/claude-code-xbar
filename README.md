@@ -70,6 +70,8 @@ When both windows are shown, the title uses the more urgent color of the two.
 
 ### Dropdown
 
+The dropdown shows the 5-hour and 7-day windows.
+
 ```
 5h window
 5h: 45% ████████░░░░░░░░░░░░
@@ -77,10 +79,6 @@ Resets in: 2h 30m
 ---
 7d window
 7d: 23% ████░░░░░░░░░░░░░░░░
-Resets in: 4d 2h
----
-7d Opus window
-7d Opus: 10% ██░░░░░░░░░░░░░░░░░░
 Resets in: 4d 2h
 ---
 Refresh
