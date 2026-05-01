@@ -30,7 +30,7 @@ The script executes in four sequential phases:
 3. **JSON parsing** — a single inline Python block extracts `utilization` and `resets_at` from the three windows (`five_hour`, `seven_day`, `seven_day_opus`), printing one value per line; shell reads them back with `sed -n 'Np'`.
 4. **Output** — prints SwiftBar-formatted text: menu bar title on line 1, dropdown sections separated by `---`.
 
-Helper functions: `show_error` (emit error state and exit), `format_pct` (float → rounded int), `time_until` (ISO 8601 → human countdown), `color_for_pct` (threshold coloring), `make_bar` (20-char ASCII progress bar), `make_icon` (generate 32×14 RGBA PNG with dual progress bars, base64-encoded).
+Helper functions: `show_error` (emit error state and exit), `format_pct` (float → rounded int), `time_until` (ISO 8601 → human countdown), `color_for_pct` (threshold coloring), `make_bar` (20-char ASCII progress bar), `pace_pct` (expected utilization at uniform pace for a window), `make_icon` (generate 52×18 RGBA PNG compositing Claude logo with dual progress bars, base64-encoded).
 
 ## User-Configurable Variables
 
@@ -42,6 +42,7 @@ Exposed as xbar plugin variables (editable via xbar UI or set as env vars before
 | `VAR_SHOW_7D` | `false` | Show 7-day utilization in title as `5h%/7d%` (text mode only) |
 | `VAR_COLORS` | `true` | Color-code title at warning/critical thresholds (text mode only) |
 | `VAR_SHOW_RESET` | `true` | Show time-until-reset in dropdown |
+| `VAR_SHOW_PACE` | `false` | Show expected uniform-pace usage bar under the 7d window |
 
 ## Conventions
 
@@ -53,7 +54,7 @@ Exposed as xbar plugin variables (editable via xbar UI or set as env vars before
 
 ## SwiftBar Output Format
 
-- Title line (bar mode): ` | image=BASE64_PNG` (space-only text, dynamic PNG via `make_icon`)
+- Title line (bar mode): ` | templateImage=BASE64_PNG` (space-only text, dynamic PNG via `make_icon`)
 - Title line (text mode): `text | templateImage=BASE64 color=#RRGGBB`
 - Dropdown separator: `---`
 - Refresh action: `Refresh | refresh=true`
