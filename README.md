@@ -121,9 +121,15 @@ All JSON parsing and date arithmetic is handled by `python3` (stdlib only). No `
 
 The `5m` in the filename tells SwiftBar to run the script every 5 minutes. To change the interval, rename the file — for example, `claude_code.1m.sh` for once per minute or `claude_code.15m.sh` for every 15 minutes.
 
-### Related projects
-
-Heavily inspired this one.
+### Inspiration for this project
 
 - **[ClaudeMeter](https://github.com/puq-ai/claude-meter)** — the full native macOS app this script lives alongside: adaptive polling, circuit breaker, notifications, settings UI, and more, all in Swift.
 - **[poe_balance](https://github.com/rsnemmen/poe-balance)** — the SwiftBar plugin for Poe API credits that served as the structural template for this script.
+
+## More SwiftBar plugins by the author
+
+Small, glanceable menu bar utilities that stay out of the way until you need them:
+
+- **[copilot-usage-tracker](../copilot-usage-tracker/)** — GitHub Copilot premium request usage and monthly pacing.
+- **[poe_balance](../poe_balance/)** — Poe API balance, percentage, and spending pace vs. the billing cycle.
+- **[weather](../weather/)** — Current conditions, temperature, humidity, and wind — no API key required.
