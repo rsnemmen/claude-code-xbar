@@ -318,10 +318,10 @@ def make_png(w, h, rows_rgba):
             + chunk(b'IDAT', zlib.compress(raw))
             + chunk(b'IEND', b''))
 
-W, H = 32, 14
-ICON_W, ICON_H = 10, 10  # downsampled logo size
-ICON_Y = 2               # top row of logo (vertically centers 10px in 14px canvas)
-BAR_X, BAR_W = 12, 20   # bars start at col 12, span 20px; cols 10-11 are a gap
+W, H = 42, 14
+ICON_W, ICON_H = 20, 14  # downsampled logo size (fills full canvas height)
+ICON_Y = 0               # top row of logo
+BAR_X, BAR_W = 22, 20   # bars start at col 22, span 20px; cols 20-21 are a gap
 
 p5 = min(max(int(round(${pct5h})), 0), 100)
 p7 = min(max(int(round(${pct7d})), 0), 100)
