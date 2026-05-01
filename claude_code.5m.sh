@@ -252,8 +252,56 @@ make_icon() {
   python3 -c "
 import struct, zlib, base64
 
-def color_for(pct):
-    return (0, 0, 0, 255)
+def decode_png(b64):
+    data = base64.b64decode(b64)
+    pos = 8
+    idat = []
+    w = h = 0
+    while pos < len(data):
+        n = struct.unpack('>I', data[pos:pos+4])[0]
+        tag = data[pos+4:pos+8]
+        cd = data[pos+8:pos+8+n]
+        pos += 12 + n
+        if tag == b'IHDR':
+            w, h = struct.unpack('>II', cd[:8])
+        elif tag == b'IDAT':
+            idat.append(cd)
+        elif tag == b'IEND':
+            break
+    raw = zlib.decompress(b''.join(idat))
+    bpp, stride = 4, w * 4
+    def paeth(a, b, c):
+        p = a + b - c
+        pa, pb, pc = abs(p-a), abs(p-b), abs(p-c)
+        return a if pa <= pb and pa <= pc else (b if pb <= pc else c)
+    rows, prev, idx = [], bytes(stride), 0
+    for _ in range(h):
+        ft = raw[idx]; idx += 1
+        s = bytearray(raw[idx:idx+stride]); idx += stride
+        if ft == 1:
+            for i in range(bpp, stride): s[i] = (s[i] + s[i-bpp]) & 0xff
+        elif ft == 2:
+            for i in range(stride): s[i] = (s[i] + prev[i]) & 0xff
+        elif ft == 3:
+            for i in range(stride):
+                s[i] = (s[i] + ((s[i-bpp] if i >= bpp else 0) + prev[i]) // 2) & 0xff
+        elif ft == 4:
+            for i in range(stride):
+                s[i] = (s[i] + paeth(s[i-bpp] if i >= bpp else 0, prev[i], prev[i-bpp] if i >= bpp else 0)) & 0xff
+        rows.append([(s[i*bpp], s[i*bpp+1], s[i*bpp+2], s[i*bpp+3]) for i in range(w)])
+        prev = bytes(s)
+    return rows, w, h
+
+def resize_nn(rows, sw, sh, dw, dh):
+    out = []
+    for ty in range(dh):
+        sy = min(int(round(ty * sh / dh)), sh - 1)
+        row = []
+        for tx in range(dw):
+            sx = min(int(round(tx * sw / dw)), sw - 1)
+            row.append(rows[sy][sx])
+        out.append(row)
+    return out
 
 def make_png(w, h, rows_rgba):
     def chunk(tag, data):
@@ -265,33 +313,47 @@ def make_png(w, h, rows_rgba):
         raw += b'\x00'
         for (r,g,b,a) in row:
             raw += bytes([r,g,b,a])
-    idat = zlib.compress(raw)
     return (b'\x89PNG\r\n\x1a\n'
             + chunk(b'IHDR', ihdr)
-            + chunk(b'IDAT', idat)
+            + chunk(b'IDAT', zlib.compress(raw))
             + chunk(b'IEND', b''))
 
 W, H = 32, 14
+ICON_W, ICON_H = 10, 10  # downsampled logo size
+ICON_Y = 2               # top row of logo (vertically centers 10px in 14px canvas)
+BAR_X, BAR_W = 12, 20   # bars start at col 12, span 20px; cols 10-11 are a gap
+
 p5 = min(max(int(round(${pct5h})), 0), 100)
 p7 = min(max(int(round(${pct7d})), 0), 100)
-c5 = color_for(p5)
-c7 = color_for(p7)
-fill5 = int(round(p5 * W / 100))
-fill7 = int(round(p7 * W / 100))
+
+logo_rows, sw, sh = decode_png('${CLAUDE_ICON}')
+logo = resize_nn(logo_rows, sw, sh, ICON_W, ICON_H)
+logo = [[(0, 0, 0, a) for (r, g, b, a) in row] for row in logo]
+
+fill5 = int(round(p5 * BAR_W / 100))
+fill7 = int(round(p7 * BAR_W / 100))
+FG    = (0, 0, 0, 255)
 EMPTY = (0, 0, 0, 60)
 CLEAR = (0, 0, 0, 0)
 
-def bar_row(fill, fg):
-    return [fg if x < fill else EMPTY for x in range(W)]
-
 rows = []
-for row_i in range(H):
-    if 1 <= row_i <= 5:
-        rows.append(bar_row(fill5, c5))
-    elif 9 <= row_i <= 13:
-        rows.append(bar_row(fill7, c7))
-    else:
-        rows.append([CLEAR] * W)
+for ri in range(H):
+    row = []
+    for ci in range(W):
+        if ci < ICON_W:
+            li = ri - ICON_Y
+            row.append(logo[li][ci] if 0 <= li < ICON_H else CLEAR)
+        elif ci < BAR_X:
+            row.append(CLEAR)
+        else:
+            bc = ci - BAR_X
+            if 1 <= ri <= 5:
+                row.append(FG if bc < fill5 else EMPTY)
+            elif 9 <= ri <= 13:
+                row.append(FG if bc < fill7 else EMPTY)
+            else:
+                row.append(CLEAR)
+    rows.append(row)
 
 print(base64.b64encode(make_png(W, H, rows)).decode())
 " 2>/dev/null
