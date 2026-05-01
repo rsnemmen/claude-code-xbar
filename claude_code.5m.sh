@@ -318,10 +318,10 @@ def make_png(w, h, rows_rgba):
             + chunk(b'IDAT', zlib.compress(raw))
             + chunk(b'IEND', b''))
 
-W, H = 36, 14
-ICON_W, ICON_H = 14, 14  # square logo, fills canvas height
+W, H = 52, 18
+ICON_W, ICON_H = 18, 18  # square logo, fills canvas height (matches static CLAUDE_ICON)
 ICON_Y = 0               # top row of logo
-BAR_X, BAR_W = 16, 20   # bars start at col 16, span 20px; cols 14-15 are a gap
+BAR_X, BAR_W = 20, 32   # bars start at col 20, span 32px; cols 18-19 are a gap
 
 p5 = min(max(int(round(${pct5h})), 0), 100)
 p7 = min(max(int(round(${pct7d})), 0), 100)
@@ -347,9 +347,9 @@ for ri in range(H):
             row.append(CLEAR)
         else:
             bc = ci - BAR_X
-            if 1 <= ri <= 5:
+            if 2 <= ri <= 7:
                 row.append(FG if bc < fill5 else EMPTY)
-            elif 9 <= ri <= 13:
+            elif 10 <= ri <= 15:
                 row.append(FG if bc < fill7 else EMPTY)
             else:
                 row.append(CLEAR)
