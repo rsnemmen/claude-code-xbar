@@ -131,6 +131,7 @@ The `5m` in the filename tells SwiftBar to run the script every 5 minutes. To ch
 Small, glanceable menu bar utilities that stay out of the way until you need them:
 
 - **[claude_code](https://github.com/rsnemmen/claude-code-xbar)** — Claude Code usage limits (5h, 7d windows) at a glance.
+- **[codex_usage](https://github.com/rsnemmen/codex-usage-swiftbar)** — Codex/OpenAI usage limits (5h, 7d windows) at a glance.
 - **[copilot-usage-tracker](https://github.com/rsnemmen/copilot-usage-tracker)** — GitHub Copilot premium request usage and monthly pacing.
 - **[poe_balance](https://github.com/rsnemmen/poe-balance-xbar)** — Poe API balance, percentage, and spending pace vs. the billing cycle.
 - **[weather](https://github.com/rsnemmen/weather-bar)** — Current conditions, temperature, humidity, and wind — no API key required.
