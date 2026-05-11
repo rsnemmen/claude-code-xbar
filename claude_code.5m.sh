@@ -14,6 +14,8 @@
 #<xbar.var>boolean(VAR_SHOW_BARS="true"): Show dynamic dual progress bar icon (5h top, 7d bottom) instead of the Claude logo.</xbar.var>
 #<xbar.var>boolean(VAR_SHOW_PACE="false"): Show expected (uniform-pace) usage bar under the 7d window.</xbar.var>
 
+umask 077
+
 SHOW_7D="${VAR_SHOW_7D:-false}"
 COLORS="${VAR_COLORS:-true}"
 SHOW_RESET="${VAR_SHOW_RESET:-true}"
@@ -28,16 +30,38 @@ show_error() {
   local message="$1"
   echo "! | templateImage=${CLAUDE_ICON}"
   echo "---"
-  echo "${message}"
+  printf '%s\n' "$message"
   echo "---"
   echo "Refresh | refresh=true"
   exit 0
 }
 
-USAGE_CACHE="/tmp/.claude_swiftbar_cache"
-TOKEN_CACHE="/tmp/.claude_swiftbar_token"
-CACHE_TTL=300   # 5 minutes — matches poll interval
-TOKEN_TTL=900   # 15 minutes
+_CACHE_DIR="${TMPDIR:-/tmp}"
+USAGE_CACHE="${_CACHE_DIR}.claude_swiftbar_cache"
+TOKEN_CACHE="${_CACHE_DIR}.claude_swiftbar_token"
+CACHE_TTL=300    # 5 minutes — matches poll interval
+TOKEN_TTL=900    # 15 minutes
+STALE_TTL=3600   # 1 hour — stale fallback on API failures
+IS_STALE=false
+
+# Falls back to stale USAGE_CACHE (up to STALE_TTL old) when the API call fails.
+# Sets $parsed and $IS_STALE on success; calls show_error (exits) when no usable cache exists.
+_use_stale_or_error() {
+  local message="$1"
+  if [ -f "$USAGE_CACHE" ]; then
+    local sa stale
+    sa=$(( $(date -u +%s) - $(stat -f %m "$USAGE_CACHE" 2>/dev/null || echo 0) ))
+    if [ "$sa" -lt "$STALE_TTL" ]; then
+      stale="$(cat "$USAGE_CACHE" 2>/dev/null)"
+      if [ -n "$stale" ]; then
+        parsed="$stale"
+        IS_STALE=true
+        return 0
+      fi
+    fi
+  fi
+  show_error "$message"
+}
 
 # === Get token (cached) ===
 
@@ -70,7 +94,10 @@ except Exception:
   if [ -z "$TOKEN" ]; then
     show_error "Could not parse Claude Code credentials."
   fi
-  printf '%s' "$TOKEN" > "$TOKEN_CACHE"
+  _t="$(mktemp "${TOKEN_CACHE}.XXXXXX")" \
+    && printf '%s' "$TOKEN" > "$_t" \
+    && chmod 600 "$_t" \
+    && mv "$_t" "$TOKEN_CACHE"
 fi
 
 # === Load usage from cache or fetch from API ===
@@ -95,20 +122,18 @@ if [ -z "$parsed" ]; then
   body="$(printf '%s\n' "$response" | sed '$d')"
 
   if [ -z "$http_code" ] || [ "$http_code" = "000" ]; then
-    show_error "No internet connection."
-  fi
-
-  if [ "$http_code" = "401" ]; then
-    # Token may be stale — clear cache so next run re-reads from Keychain
-    rm -f "$TOKEN_CACHE"
+    _use_stale_or_error "No internet connection."
+  elif [ "$http_code" = "401" ]; then
+    rm -f "$TOKEN_CACHE" "$USAGE_CACHE"
     show_error "Token expired. Please sign in to Claude Code again."
   elif [ "$http_code" = "429" ]; then
-    show_error "Usage API rate limited. Will retry shortly."
+    _use_stale_or_error "Usage API rate limited. Will retry shortly."
   elif [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-    show_error "API error: HTTP $http_code"
+    _use_stale_or_error "API error: HTTP $http_code"
   fi
 
-  parsed="$(printf '%s' "$body" | python3 -c "
+  if [ -z "$parsed" ]; then
+    parsed="$(printf '%s' "$body" | python3 -c "
 import json, sys
 try:
     d = json.loads(sys.stdin.read())
@@ -121,47 +146,49 @@ try:
             return str(v) if v is not None else default
         except Exception:
             return default
-    print(get_val('five_hour',      'utilization', '0'))
-    print(get_val('seven_day',      'utilization', '0'))
-    print(get_val('seven_day_opus', 'utilization', '0'))
-    print(get_val('five_hour',      'resets_at',   ''))
-    print(get_val('seven_day',      'resets_at',   ''))
-    print(get_val('seven_day_opus', 'resets_at',   ''))
+    if not any(isinstance(d.get(w), dict) and d[w].get('utilization') is not None
+               for w in ('five_hour', 'seven_day', 'seven_day_opus')):
+        sys.exit(1)
+    print(get_val('five_hour', 'utilization', '0'))
+    print(get_val('seven_day', 'utilization', '0'))
+    print(get_val('five_hour', 'resets_at',   ''))
+    print(get_val('seven_day', 'resets_at',   ''))
 except Exception as e:
     sys.stderr.write(str(e) + '\n')
     sys.exit(1)
 " 2>/dev/null)"
-
-  if [ -z "$parsed" ]; then
-    show_error "Could not parse API response"
   fi
 
-  printf '%s\n' "$parsed" > "$USAGE_CACHE"
+  if [ -z "$parsed" ]; then
+    _use_stale_or_error "Could not parse API response"
+  fi
+
+  if [ "$IS_STALE" = "false" ]; then
+    _t="$(mktemp "${USAGE_CACHE}.XXXXXX")" && printf '%s\n' "$parsed" > "$_t" && mv "$_t" "$USAGE_CACHE"
+  fi
 fi
 
-UTIL_5H="$(      printf '%s\n' "$parsed" | sed -n '1p')"
-UTIL_7D="$(      printf '%s\n' "$parsed" | sed -n '2p')"
-UTIL_7D_OPUS="$( printf '%s\n' "$parsed" | sed -n '3p')"
-RESET_5H="$(     printf '%s\n' "$parsed" | sed -n '4p')"
-RESET_7D="$(     printf '%s\n' "$parsed" | sed -n '5p')"
-RESET_7D_OPUS="$(printf '%s\n' "$parsed" | sed -n '6p')"
+UTIL_5H="$( printf '%s\n' "$parsed" | sed -n '1p')"
+UTIL_7D="$( printf '%s\n' "$parsed" | sed -n '2p')"
+RESET_5H="$(printf '%s\n' "$parsed" | sed -n '3p')"
+RESET_7D="$( printf '%s\n' "$parsed" | sed -n '4p')"
 
 format_pct() {
   python3 -c "print(round(float('${1:-0}')))" 2>/dev/null || echo "0"
 }
 
-PCT_5H="$(      format_pct "$UTIL_5H")"
-PCT_7D="$(      format_pct "$UTIL_7D")"
-PCT_7D_OPUS="$( format_pct "$UTIL_7D_OPUS")"
+PCT_5H="$(format_pct "$UTIL_5H")"
+PCT_7D="$(format_pct "$UTIL_7D")"
 
 # === Helper: human-readable countdown from ISO 8601 timestamp ===
 
 time_until() {
   local ts="$1"
   [ -z "$ts" ] && echo "?" && return
-  python3 -c "
+  TS="$ts" python3 -c "
+import os
 from datetime import datetime, timezone
-ts = '${ts}'
+ts = os.environ['TS']
 try:
     if ts.endswith('Z'):
         ts = ts[:-1] + '+00:00'
@@ -187,17 +214,17 @@ except Exception:
 }
 
 # === Helper: expected utilization at uniform pace ===
-# Returns what % of the window should have been used by now, assuming uniform consumption.
 # pace_pct <resets_at_iso8601> <window_days>
 
 pace_pct() {
   local ts="$1"
   local days="$2"
   [ -z "$ts" ] && echo "0" && return
-  python3 -c "
+  TS="$ts" DAYS="$days" python3 -c "
+import os
 from datetime import datetime, timezone, timedelta
-ts = '${ts}'
-days = ${days}
+ts = os.environ['TS']
+days = int(os.environ['DAYS'])
 try:
     if ts.endswith('Z'):
         ts = ts[:-1] + '+00:00'
@@ -249,8 +276,8 @@ make_bar() {
 
 make_icon() {
   local pct5h="${1:-0}" pct7d="${2:-0}"
-  python3 -c "
-import struct, zlib, base64
+  PCT5H="$pct5h" PCT7D="$pct7d" python3 -c "
+import os, struct, zlib, base64
 
 def decode_png(b64):
     data = base64.b64decode(b64)
@@ -323,8 +350,8 @@ ICON_W, ICON_H = 18, 18  # square logo, fills canvas height (matches static CLAU
 ICON_Y = 0               # top row of logo
 BAR_X, BAR_W = 20, 32   # bars start at col 20, span 32px; cols 18-19 are a gap
 
-p5 = min(max(int(round(${pct5h})), 0), 100)
-p7 = min(max(int(round(${pct7d})), 0), 100)
+p5 = min(max(int(round(float(os.environ['PCT5H']))), 0), 100)
+p7 = min(max(int(round(float(os.environ['PCT7D']))), 0), 100)
 
 logo_rows, sw, sh = decode_png('${CLAUDE_ICON}')
 logo = resize_nn(logo_rows, sw, sh, ICON_W, ICON_H)
@@ -367,8 +394,8 @@ COLOR_7D="$(color_for_pct "$PCT_7D")"
 # For title, use the "most urgent" color (critical > warning > none)
 title_color() {
   local c1="$1" c2="$2"
-  [ "$c1" = "#FF0000" ] || [ "$c2" = "#FF0000" ] && echo "#FF0000" && return
-  [ "$c1" = "#FFD700" ] || [ "$c2" = "#FFD700" ] && echo "#FFD700" && return
+  if [ "$c1" = "#CC0000" ] || [ "$c2" = "#CC0000" ]; then echo "#CC0000"; return; fi
+  if [ "$c1" = "#CC8800" ] || [ "$c2" = "#CC8800" ]; then echo "#CC8800"; return; fi
   echo ""
 }
 
@@ -383,7 +410,11 @@ fi
 # Emit menu bar line
 if [ "$SHOW_BARS" = "true" ]; then
   BAR_ICON="$(make_icon "$PCT_5H" "$PCT_7D")"
-  echo " | templateImage=${BAR_ICON}"
+  if [ -n "$BAR_ICON" ]; then
+    echo " | templateImage=${BAR_ICON}"
+  else
+    echo "${PCT_5H}% | templateImage=${CLAUDE_ICON}"
+  fi
 else
   if [ -n "$TITLE_COLOR" ]; then
     echo "${TITLE} | templateImage=${CLAUDE_ICON} color=${TITLE_COLOR}"
@@ -432,6 +463,11 @@ fi
 if [ "$SHOW_RESET" = "true" ] && [ -n "$RESET_7D" ]; then
   UNTIL_7D="$(time_until "$RESET_7D")"
   echo "Resets in: ${UNTIL_7D} | color=#888888"
+fi
+
+if [ "$IS_STALE" = "true" ]; then
+  echo "---"
+  echo "(showing cached data) | color=#888888"
 fi
 
 echo "---"
