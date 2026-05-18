@@ -41,7 +41,7 @@ USAGE_CACHE="${_CACHE_DIR}.claude_swiftbar_cache"
 TOKEN_CACHE="${_CACHE_DIR}.claude_swiftbar_token"
 CACHE_TTL=300    # 5 minutes — matches poll interval
 TOKEN_TTL=900    # 15 minutes
-STALE_TTL=3600   # 1 hour — stale fallback on API failures
+STALE_TTL=86400  # 24 hours — stale fallback on API failures
 IS_STALE=false
 
 # Falls back to stale USAGE_CACHE (up to STALE_TTL old) when the API call fails.
